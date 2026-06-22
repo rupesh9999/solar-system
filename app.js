@@ -13,16 +13,12 @@ app.use(cors())
 
 mongoose.connect(process.env.MONGO_URI, {
     user: process.env.MONGO_USERNAME,
-    pass: process.env.MONGO_PASSWORD,
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-}, function(err) {
-    if (err) {
-        console.log("error!! " + err)
-    } else {
-      //  console.log("MongoDB Connection Successful")
-    }
-})
+    pass: process.env.MONGO_PASSWORD
+}).then(() => {
+    // console.log("MongoDB Connection Successful")
+}).catch(err => {
+    console.error("error!! " + err);
+});
 
 var Schema = mongoose.Schema;
 
@@ -36,20 +32,26 @@ var dataSchema = new Schema({
 });
 var planetModel = mongoose.model('planets', dataSchema);
 
-
-
-app.post('/planet',   function(req, res) {
-   // console.log("Received Planet ID " + req.body.id)
-    planetModel.findOne({
-        id: req.body.id
-    }, function(err, planetData) {
-        if (err) {
-            alert("Ooops, We only have 9 planets and a sun. Select a number from 0 - 9")
-            res.send("Error in Planet Data")
-        } else {
-            res.send(planetData);
+app.post('/planet', async function(req, res) {
+    try {
+        if (req.body.id === undefined || req.body.id === null) {
+            return res.status(400).send("Planet ID is required");
         }
-    })
+
+        const planetId = Number(req.body.id);
+        if (!Number.isInteger(planetId) || planetId < 0 || planetId > 9) {
+            return res.status(400).send("Invalid Planet ID. Select a number from 0 - 9");
+        }
+
+        const planetData = await planetModel.findOne({
+            id: planetId
+        }).exec();
+
+        res.send(planetData);
+    } catch (err) {
+        console.error("Error in Planet Data fetch:", err);
+        res.status(500).send("Error in Planet Data");
+    }
 })
 
 app.get('/',   async (req, res) => {

@@ -3,6 +3,30 @@ let server = require("./app");
 let chai = require("chai");
 let chaiHttp = require("chai-http");
 
+// Mock Mongoose model findOne to return static planet data for testing
+const planetModel = mongoose.model('planets');
+planetModel.findOne = function(query) {
+    const planets = {
+        1: { id: 1, name: 'Mercury', description: 'Mercury is...', image: 'mercury.png' },
+        2: { id: 2, name: 'Venus', description: 'Venus is...', image: 'venus.png' },
+        3: { id: 3, name: 'Earth', description: 'Earth is...', image: 'earth.png' },
+        4: { id: 4, name: 'Mars', description: 'Mars is...', image: 'mars.png' },
+        5: { id: 5, name: 'Jupiter', description: 'Jupiter is...', image: 'jupiter.png' },
+        6: { id: 6, name: 'Saturn', description: 'Saturn is...', image: 'saturn.png' },
+        7: { id: 7, name: 'Uranus', description: 'Uranus is...', image: 'uranus.png' },
+        8: { id: 8, name: 'Neptune', description: 'Neptune is...', image: 'neptune.png' }
+    };
+    const id = query && query.id;
+    if (id === 9) {
+        return {
+            exec: async () => { throw new Error("Mock database error"); }
+        };
+    }
+    const planet = planets[id];
+    return {
+        exec: async () => planet || null
+    };
+};
 
 // Assertion 
 chai.should();
@@ -184,6 +208,63 @@ describe('Testing Other Endpoints', () => {
                     res.body.should.have.property('status').eql('ready');
                 done();
               });
+        });
+    });
+
+    describe('it should fetch Home Page', () => {
+        it('it checks Home Page endpoint', (done) => {
+          chai.request(server)
+              .get('/')
+              .end((err, res) => {
+                    res.should.have.status(200);
+                done();
+              });
+        });
+    });
+
+    describe('Validation and Error Paths', () => {
+        it('it should return 400 for missing ID', (done) => {
+            chai.request(server)
+                .post('/planet')
+                .send({})
+                .end((err, res) => {
+                    res.should.have.status(400);
+                    res.text.should.eql('Planet ID is required');
+                    done();
+                });
+        });
+
+        it('it should return 400 for invalid ID range', (done) => {
+            chai.request(server)
+                .post('/planet')
+                .send({ id: 99 })
+                .end((err, res) => {
+                    res.should.have.status(400);
+                    res.text.should.eql('Invalid Planet ID. Select a number from 0 - 9');
+                    done();
+                });
+        });
+
+        it('it should return 400 for non-integer ID', (done) => {
+            chai.request(server)
+                .post('/planet')
+                .send({ id: "invalid-id" })
+                .end((err, res) => {
+                    res.should.have.status(400);
+                    res.text.should.eql('Invalid Planet ID. Select a number from 0 - 9');
+                    done();
+                });
+        });
+
+        it('it should return 500 when database error occurs', (done) => {
+            chai.request(server)
+                .post('/planet')
+                .send({ id: 9 })
+                .end((err, res) => {
+                    res.should.have.status(500);
+                    res.text.should.eql('Error in Planet Data');
+                    done();
+                });
         });
     });
 
